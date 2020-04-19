@@ -7,18 +7,18 @@ The script was written under `Python 3.7`using `PyQt5`.
 For DICOM support `PyDicom`, `numpy` and `PIL` were used.
 
 The following versions of python libraries were used 
-    ```
+```
     PyQt5
     Python 3.7.4
     PyDicom 1.4.2
     numpy 1.17.2
     PIL 6.2.0
-    ```
+```
 
 ## How to use
 Adapt the `labels.txt` file to implement custom labels. Each category should be in a single line. Different classes should be separeted by a Colon. An unlimited number of categories and classes is supported.
 
-After start press `Ctrl+O` (or `Cmd+O` on Mac) to open an image directory. Depening on the size and folder directory, loading can take some time and the programm might appear frozen. 
+After start press `Ctrl+O` (or `Cmd+O` on Mac) to open an image directory. Depening on the number of images and number of subdirectories, loading can take some time and the programm might become unresponsive. Please be patient.  
 
 The previous or next image can be selected with the arrow keys. Each time the arrow keys are pressed, labels will be written to a file (`ORIGINALNAME_annotation.txt`) in the same directory as the Image file. 
 
