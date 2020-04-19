@@ -24,7 +24,7 @@ The previous or next image can be selected with the arrow keys. Each time the ar
 
 Further commands can be found in the menu strip under `View`.
   
-Sample images taken from: 
+Sample images taken from:   
 https://commons.wikimedia.org/wiki/File:Chest.png  
 https://en.wikipedia.org/wiki/Pneumothorax#/media/File:Rt_sided_pneumoD.jpg  
 https://en.wikipedia.org/wiki/Projectional_radiography  
