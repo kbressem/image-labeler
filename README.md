@@ -1,6 +1,6 @@
 # Image Labeler
-A simple prototype for image labeling supporting PNG, JPEG, BMP, GIF and DICOM.
-adapted from: [acbetter](https://gist.github.com/acbetter/32c575803ec361c3e82064e60db4e3e0), https://acbetter.com/
+A simple prototype for image labeling supporting PNG, JPEG, BMP, GIF and DICOM.  
+Adapted from a script proveded by [acbetter](https://gist.github.com/acbetter/32c575803ec361c3e82064e60db4e3e0) (https://acbetter.com/)
 
 ## Prerequisites
 The script was written under `Python 3.7`using `PyQt5`. 
