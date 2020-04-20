@@ -31,6 +31,8 @@ class QImageViewer(QMainWindow):
         self.scrollArea.setWidget(self.imageLabel)
         self.scrollArea.setVisible(False)
 
+        self.autoSaveEnabled = True
+
         self.setCentralWidget(self.scrollArea)
 
         self.createActions()
@@ -69,38 +71,20 @@ class QImageViewer(QMainWindow):
                 expr = 'self.finding_'+str(i)+'.addItem(f)'
                 eval(expr)
 
-    def writeFindings(self):
-        self.fileName = os.path.splitext(self.fileName)[0]
-        with open(self.fileName+"_annotation.txt", "w+") as a:
-            for i in range(0, self.numberFindings):
-                expr_name = 'self.finding_'+str(i)
-                a.write(eval(expr_name+'.currentText()')+'\n')
-        print("saved file at "+self.fileName+"_annotation.txt")
-
-    def loadFindings(self):
-        self.fileName = os.path.splitext(self.fileName)[0]+"_annotation.txt"
-        if os.path.isfile(self.fileName):
-            annotatedFinding=[]
-            with open(self.fileName, "r") as a:
-                for l in a.readlines():
-                    annotatedFinding.append(l.replace("\n", ""))
-
-            for i in range(0, self.numberFindings):
-                expr_name = 'self.finding_'+str(i)
-                eval(expr_name+'.setCurrentText(annotatedFinding['+str(i)+'])')
-
     def open(self):
-        fileDir = QFileDialog.getExistingDirectory(self)
+        self.fileDir = QFileDialog.getExistingDirectory(self)
         self.fileNames = []
         self.imageExtensions = tuple([".png", ".jpeg", ".jpg", ".bmp", ".gif"])
-        for dirpath, subdirs, files in os.walk(fileDir):
+        for dirpath, subdirs, files in os.walk(self.fileDir):
             for f in files:
                 if f.endswith(self.imageExtensions) or f.endswith(".dcm"):
                     self.fileNames.append(os.path.join(dirpath, f))
         self.imageNumber = 0
         self.show_image()
+        self.loadFindings()
         self.nextAct.setEnabled(True)
         self.previousAct.setEnabled(True)
+        self.saveAct.setEnabled(True)
 
     def show_image(self, adjustDicomWindow=False):
         self.fileName = self.fileNames[self.imageNumber]
@@ -117,7 +101,7 @@ class QImageViewer(QMainWindow):
                 eval(expr)
 
             # very rudimentary DICOM support
-            # TODO: adujsting grey level values with presets Ctrl+1-Ctrl+9 (simpler) or with mouse (probably help needed)
+            # TODO: (maybe) adujsting grey level values with mouse
             self.adjustDicomWindowLevel(adjustDicomWindow)
             self.imageLabel.setPixmap(QPixmap(".tmp.png"))
 
@@ -198,23 +182,54 @@ class QImageViewer(QMainWindow):
             painter.drawPixmap(0, 0, self.imageLabel.pixmap())
 
     def next(self):
-        self.writeFindings()
+        if self.autoSaveEnabled:
+            self.writeFindings()
         if self.imageNumber < (len(self.fileNames)-1):
             self.imageNumber += 1
         else:
             self.imageNumber = 0
-        self.loadFindings()
         self.show_image()
-
+        self.loadFindings()
 
     def previous(self):
-        self.writeFindings()
+        if self.autoSaveEnabled:
+            self.writeFindings()
         if self.imageNumber > 0:
             self.imageNumber -= 1
         else:
             self.imageNumber = (len(self.fileNames)-1)
-        self.loadFindings()
         self.show_image()
+        self.loadFindings()
+
+    def writeFindings(self):
+        saveName = os.path.splitext(self.fileName)[0]
+        with open(saveName+"_annotation.txt", "w+") as a:
+            for i in range(0, self.numberFindings):
+                expr_name = 'self.finding_'+str(i)
+                a.write(eval(expr_name+'.currentText()')+'\n')
+        print("saved file at "+saveName+"_annotation.txt")
+
+    def loadFindings(self):
+        saveName = os.path.splitext(self.fileName)[0]+"_annotation.txt"
+        if os.path.isfile(saveName):
+            annotatedFinding=[]
+            with open(saveName, "r") as a:
+                for l in a.readlines():
+                    annotatedFinding.append(l.replace("\n", ""))
+
+            for i in range(0, self.numberFindings):
+                expr_name = 'self.finding_'+str(i)
+                eval(expr_name+'.setCurrentText(annotatedFinding['+str(i)+'])')
+
+        print("loaded annotations from "+saveName)
+
+    def toggleAutosave(self):
+        if self.autoSaveEnabled:
+            self.autoSaveEnabled = False
+            self.toggleAutosaveAct.setText("Autosave Off")
+        else:
+            self.autoSaveEnabled = True
+            self.toggleAutosaveAct.setText("Autosave On")
 
     def zoomIn(self):
         self.scaleImage(1.25)
@@ -253,34 +268,41 @@ class QImageViewer(QMainWindow):
     def createActions(self):
         self.openAct = QAction("&Open...", self, shortcut="Ctrl+O", triggered=self.open)
         self.printAct = QAction("&Print...", self, shortcut="Ctrl+P", enabled=False, triggered=self.print_)
+        self.saveAct = QAction("Save Annotations", self, shortcut="Ctrl+S", enabled=False, triggered=self.writeFindings)
+        self.toggleAutosaveAct = QAction("Autosave On", self, shortcut="Ctrl+A", enabled=True, triggered=self.toggleAutosave)
+
         self.exitAct = QAction("E&xit", self, shortcut="Ctrl+Q", triggered=self.close)
         self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
         self.zoomOutAct = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
-        self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S", enabled=False, triggered=self.normalSize)
+        self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+N", enabled=False, triggered=self.normalSize)
         self.nextAct = QAction("Ne&xt image", self, shortcut=Qt.Key_Right, enabled=False, triggered=self.next)
         self.previousAct = QAction("Previous Image", self, shortcut=Qt.Key_Left, enabled=False, triggered=self.previous)
+
         self.fitToWindowAct = QAction("&Fit to Window", self, enabled=False, checkable=True, shortcut="Ctrl+F",
                                       triggered=self.fitToWindow)
         self.aboutAct = QAction("&About", self, triggered=self.about)
         self.aboutQtAct = QAction("About &Qt", self, triggered=qApp.aboutQt)
 
-        self.dicomLevelResetAct = QAction("Reset Window Level", self, shortcut="0", enabled=False,
+        self.dicomLevelResetAct = QAction("Reset Window Level", self, shortcut="Ctrl+0", enabled=False,
                                             triggered=lambda: self.changeWindowLevel(preset = 0, reset = True))
 
-        self.dicomLevelPreset1Act = QAction("Window Level Preset 1", self, shortcut="1", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 1))
-        self.dicomLevelPreset2Act = QAction("Window Level Preset 2", self, shortcut="2", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 2))
-        self.dicomLevelPreset3Act = QAction("Window Level Preset 3", self, shortcut="3", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 3))
-        self.dicomLevelPreset4Act = QAction("Window Level Preset 4", self, shortcut="4", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 4))
-        self.dicomLevelPreset5Act = QAction("Window Level Preset 5", self, shortcut="5", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 5))
-        self.dicomLevelPreset6Act = QAction("Window Level Preset 6", self, shortcut="6", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 6))
-        self.dicomLevelPreset7Act = QAction("Window Level Preset 7", self, shortcut="7", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 7))
-        self.dicomLevelPreset8Act = QAction("Window Level Preset 8", self, shortcut="8", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 8))
-        self.dicomLevelPreset9Act = QAction("Window Level Preset 9", self, shortcut="9", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 9))
+        self.dicomLevelPreset1Act = QAction("Window Level Preset 1", self, shortcut="Ctrl+1", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 1))
+        self.dicomLevelPreset2Act = QAction("Window Level Preset 2", self, shortcut="Ctrl+2", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 2))
+        self.dicomLevelPreset3Act = QAction("Window Level Preset 3", self, shortcut="Ctrl+3", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 3))
+        self.dicomLevelPreset4Act = QAction("Window Level Preset 4", self, shortcut="Ctrl+4", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 4))
+        self.dicomLevelPreset5Act = QAction("Window Level Preset 5", self, shortcut="Ctrl+5", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 5))
+        self.dicomLevelPreset6Act = QAction("Window Level Preset 6", self, shortcut="Ctrl+6", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 6))
+        self.dicomLevelPreset7Act = QAction("Window Level Preset 7", self, shortcut="Ctrl+7", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 7))
+        self.dicomLevelPreset8Act = QAction("Window Level Preset 8", self, shortcut="Ctrl+8", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 8))
+        self.dicomLevelPreset9Act = QAction("Window Level Preset 9", self, shortcut="Ctrl+9", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 9))
 
     def createMenus(self):
         self.fileMenu = QMenu("&File", self)
         self.fileMenu.addAction(self.openAct)
         self.fileMenu.addAction(self.printAct)
+        self.fileMenu.addAction(self.saveAct)
+        self.fileMenu.addAction(self.toggleAutosaveAct)
+
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.exitAct)
 
@@ -329,7 +351,36 @@ class QImageViewer(QMainWindow):
                                + ((factor - 1) * scrollBar.pageStep() / 2)))
 
     def closeEvent(self, event):
-        os.remove(".tmp.png")
+        if hasattr(self, 'fileDir'):
+            close = QMessageBox()
+            close.setText("Annotations are currently stored as mutliple text files."+
+                          "Shall they be gathered and stored into a single CSV-file? \n\n"+
+                          "This may take some time and the program might appear unresponsive.")
+            close.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            close = close.exec()
+
+            if close == QMessageBox.Yes:
+                import pandas as pd
+                annotationFiles = []
+                annotations = []
+                for dirpath, subdirs, files in os.walk(self.fileDir):
+                    for f in files:
+                        if f.endswith("_annotation.txt"):
+                            annotationFiles.append(os.path.join(dirpath, f))
+                for a in annotationFiles:
+                    with open(a, "r") as f:
+                        annotations.append([sub.replace("\n", "") for sub in f.readlines()])
+
+                df = pd.DataFrame(annotations)
+                df.insert(0, 'fileNames', self.fileNames)
+                df.to_csv("annotations.csv")
+
+        try:
+            os.remove(".tmp.png")
+        except:
+            pass
+        event.accept()
+
 
 if __name__ == '__main__':
     import sys
