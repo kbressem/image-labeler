@@ -10,11 +10,9 @@ import os
 
 # for DICOM support
 from pydicom import dcmread
-from numpy import amax, uint8
+from numpy import amax, uint8, rint
 from PIL import Image
 
-import PIL
-PIL.__version__
 
 class QImageViewer(QMainWindow):
     def __init__(self):
@@ -72,19 +70,18 @@ class QImageViewer(QMainWindow):
                 eval(expr)
 
     def writeFindings(self):
-        fileName = self.fileNames[self.imageNumber]
-        fileName = os.path.splitext(fileName)[0]
-        with open(fileName+"_annotation.txt", "w+") as a:
+        self.fileName = os.path.splitext(self.fileName)[0]
+        with open(self.fileName+"_annotation.txt", "w+") as a:
             for i in range(0, self.numberFindings):
                 expr_name = 'self.finding_'+str(i)
                 a.write(eval(expr_name+'.currentText()')+'\n')
+        print("saved file at "+self.fileName+"_annotation.txt")
 
     def loadFindings(self):
-        fileName = self.fileNames[self.imageNumber]
-        fileName = os.path.splitext(fileName)[0]+"_annotation.txt"
-        if os.path.isfile(fileName):
+        self.fileName = os.path.splitext(self.fileName)[0]+"_annotation.txt"
+        if os.path.isfile(self.fileName):
             annotatedFinding=[]
-            with open(fileName, "r") as a:
+            with open(self.fileName, "r") as a:
                 for l in a.readlines():
                     annotatedFinding.append(l.replace("\n", ""))
 
@@ -101,51 +98,93 @@ class QImageViewer(QMainWindow):
                 if f.endswith(self.imageExtensions) or f.endswith(".dcm"):
                     self.fileNames.append(os.path.join(dirpath, f))
         self.imageNumber = 0
-        self.show_image(self.fileNames[self.imageNumber])
-        self.nextAct.setEnabled(not self.fitToWindowAct.isChecked())
-        self.previousAct.setEnabled(not self.fitToWindowAct.isChecked())
+        self.show_image()
+        self.nextAct.setEnabled(True)
+        self.previousAct.setEnabled(True)
 
-    def show_image(self, fileName):
-        if fileName:
-            if fileName.endswith(self.imageExtensions):
-                image = QImage(fileName)
-                if image.isNull():
-                    QMessageBox.information(self, "Image Viewer", "Cannot load %s." % fileName)
-                    return
+    def show_image(self, adjustDicomWindow=False):
+        self.fileName = self.fileNames[self.imageNumber]
+        if self.fileName.endswith(self.imageExtensions):
+            image = QImage(self.fileName)
+            if image.isNull():
+                QMessageBox.information(self, "Image Viewer", "Cannot load %s." % fileName)
+                return
+            self.imageLabel.setPixmap(QPixmap.fromImage(image))
+        else:
+            self.dicomLevelResetAct.setEnabled(True)
+            for i in range(1,10):
+                expr = 'self.dicomLevelPreset'+str(i)+'Act.setEnabled(True)'
+                eval(expr)
 
-                self.imageLabel.setPixmap(QPixmap.fromImage(image))
-            else:
-                # very rudimentary DICOM support
-                # TODO: adujsting grey level values with presets F1-F9 (simpler) or with mouse (probably help needed)
+            # very rudimentary DICOM support
+            # TODO: adujsting grey level values with presets Ctrl+1-Ctrl+9 (simpler) or with mouse (probably help needed)
+            self.adjustDicomWindowLevel(adjustDicomWindow)
+            self.imageLabel.setPixmap(QPixmap(".tmp.png"))
 
-                dicomFile = dcmread(fileName)
-                rescaleFactor = amax(dicomFile.pixel_array)/256
-                img = Image.fromarray((dicomFile.pixel_array/rescaleFactor).astype(uint8))
-                img.save(".tmp.png")
-                self.imageLabel.setPixmap(QPixmap(".tmp.png"))
+        self.scaleFactor = 1.0
 
-            self.scaleFactor = 1.0
+        self.scrollArea.setVisible(True)
+        self.printAct.setEnabled(True)
+        self.fitToWindowAct.setEnabled(True)
+        self.updateActions()
 
-            self.scrollArea.setVisible(True)
-            self.printAct.setEnabled(True)
-            self.fitToWindowAct.setEnabled(True)
-            self.updateActions()
+        if not self.fitToWindowAct.isChecked():
+            self.imageLabel.adjustSize()
 
-            if not self.fitToWindowAct.isChecked():
-                self.imageLabel.adjustSize()
+        # rescale very small images (CT, MRI), usually squared images. If not, then width
+        # will likely be the smallest
+        if self.imageLabel.pixmap().width() < 1024:
+            scaleFactor = 1024/self.imageLabel.pixmap().width()
+            self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
+        # rescale very large images
+        if self.imageLabel.pixmap().height() > 1024:
+            scaleFactor = 1024/self.imageLabel.pixmap().height()
+            self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
+        if self.imageLabel.pixmap().width() > 1024:
+            scaleFactor = 1024/self.imageLabel.pixmap().width()
+            self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
 
-            # rescale very large images
-            if self.imageLabel.pixmap().height() > 1400:
-                scaleFactor = 1400/self.imageLabel.pixmap().height()
-                self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
-            elif self.imageLabel.pixmap().width() > 1400:
-                scaleFactor = 1400/self.imageLabel.pixmap().width()
-                self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
-            # rescale very small images (CT, MRI), usually squared images. If not, then width
-            # will likely be the smallest
-            elif self.imageLabel.pixmap().width() < 512:
-                scaleFactor = 512/self.imageLabel.pixmap().width()
-                self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
+    def adjustDicomWindowLevel(self, adjustDicomWindow=False):
+        dicomFile = dcmread(self.fileName)
+        arr = dicomFile.pixel_array
+        if adjustDicomWindow:
+            px_range = 255
+            minval = self.wc - 0.5 - (self.ww - 1.0) / 2.0
+            maxval = self.wc - 0.5 + (self.ww - 1.0) / 2.0
+
+            min_mask = (minval >= arr)
+            to_scale = (arr > minval) & (arr < maxval)
+            max_mask = (arr >= maxval)
+
+            if min_mask.any():
+                arr[min_mask] = 0
+            if to_scale.any():
+                arr[to_scale] = ((arr[to_scale] - (self.wc - 0.5)) /
+                                 (self.ww - 1.0) + 0.5) * px_range + 0
+            if max_mask.any():
+                arr[max_mask] = 255
+
+            # round to next integer values and convert to unsigned int
+            arr = rint(arr).astype(uint8)
+            img = Image.fromarray((arr).astype(uint8))
+        else:
+            rescaleFactor = amax(arr)/256
+            img = Image.fromarray((arr/rescaleFactor).astype(uint8))
+
+        img.save(".tmp.png")
+
+    def changeWindowLevel(self, preset, reset=False):
+        presets=[]
+        with open("windowlevel-presets.txt", "r") as f:
+            for l in f.readlines():
+                presets.append(l.replace("\n", ""))
+
+        if reset:
+            self.show_image(adjustDicomWindow=False)
+        else:
+            self.wc = int(presets[preset].split(",")[0])
+            self.ww = int(presets[preset].split(",")[1])
+            self.show_image(adjustDicomWindow=True)
 
     def print_(self):
         dialog = QPrintDialog(self.printer, self)
@@ -165,7 +204,7 @@ class QImageViewer(QMainWindow):
         else:
             self.imageNumber = 0
         self.loadFindings()
-        self.show_image(self.fileNames[self.imageNumber])
+        self.show_image()
 
 
     def previous(self):
@@ -175,7 +214,7 @@ class QImageViewer(QMainWindow):
         else:
             self.imageNumber = (len(self.fileNames)-1)
         self.loadFindings()
-        self.show_image(self.fileNames[self.imageNumber])
+        self.show_image()
 
     def zoomIn(self):
         self.scaleImage(1.25)
@@ -225,6 +264,19 @@ class QImageViewer(QMainWindow):
         self.aboutAct = QAction("&About", self, triggered=self.about)
         self.aboutQtAct = QAction("About &Qt", self, triggered=qApp.aboutQt)
 
+        self.dicomLevelResetAct = QAction("Reset Window Level", self, shortcut="0", enabled=False,
+                                            triggered=lambda: self.changeWindowLevel(preset = 0, reset = True))
+
+        self.dicomLevelPreset1Act = QAction("Window Level Preset 1", self, shortcut="1", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 1))
+        self.dicomLevelPreset2Act = QAction("Window Level Preset 2", self, shortcut="2", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 2))
+        self.dicomLevelPreset3Act = QAction("Window Level Preset 3", self, shortcut="3", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 3))
+        self.dicomLevelPreset4Act = QAction("Window Level Preset 4", self, shortcut="4", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 4))
+        self.dicomLevelPreset5Act = QAction("Window Level Preset 5", self, shortcut="5", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 5))
+        self.dicomLevelPreset6Act = QAction("Window Level Preset 6", self, shortcut="6", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 6))
+        self.dicomLevelPreset7Act = QAction("Window Level Preset 7", self, shortcut="7", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 7))
+        self.dicomLevelPreset8Act = QAction("Window Level Preset 8", self, shortcut="8", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 8))
+        self.dicomLevelPreset9Act = QAction("Window Level Preset 9", self, shortcut="9", enabled=False, triggered=lambda: self.changeWindowLevel(preset = 9))
+
     def createMenus(self):
         self.fileMenu = QMenu("&File", self)
         self.fileMenu.addAction(self.openAct)
@@ -240,6 +292,14 @@ class QImageViewer(QMainWindow):
         self.viewMenu.addAction(self.previousAct)
         self.viewMenu.addSeparator()
         self.viewMenu.addAction(self.fitToWindowAct)
+        self.viewMenu.addSeparator()
+        self.viewMenu.addAction(self.dicomLevelResetAct)
+        for i in range(1,10):
+            expr = 'self.viewMenu.addAction(self.dicomLevelPreset'+str(i)+'Act)'
+            eval(expr)
+        self.viewMenu.addSeparator()
+
+
 
         self.helpMenu = QMenu("&Help", self)
         self.helpMenu.addAction(self.aboutAct)
