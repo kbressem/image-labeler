@@ -4,7 +4,7 @@ Adapted from a script provided by [acbetter](https://gist.github.com/acbetter/32
 
 ## Prerequisites
 The script was written under `Python 3.7`using `PyQt5`. 
-For DICOM support `PyDicom`, `numpy` and `PIL` were used.
+For DICOM support `PyDicom`, `numpy` and `PIL` were used. (https://pydicom.github.io/pydicom/stable/tutorials/installation.html)
 
 The following versions of python libraries were included
 ```
@@ -14,6 +14,7 @@ The following versions of python libraries were included
     numpy 1.17.2
     PIL 6.2.0
 ```
+
 
 ## How to use
 Adapt the `labels.txt` file to implement custom labels. Each category should be in a single line. Different classes should be separated by a colon. An unlimited number of categories and classes is supported.
