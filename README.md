@@ -5,6 +5,7 @@ Adapted from a script provided by [acbetter](https://gist.github.com/acbetter/32
 ## Prerequisites
 The script was written under `Python 3.7`using `PyQt5`. 
 For DICOM support `PyDicom`, `numpy` and `PIL` were used. (https://pydicom.github.io/pydicom/stable/tutorials/installation.html)
+For export of labels to csv `pandas` is used.
 
 The following versions of python libraries were included
 ```
@@ -13,6 +14,7 @@ The following versions of python libraries were included
     PyDicom 1.4.2
     numpy 1.17.2
     PIL 6.2.0
+    pandas 0.25.1
 ```
 
 
