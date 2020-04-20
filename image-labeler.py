@@ -184,6 +184,10 @@ class QImageViewer(QMainWindow):
     def next(self):
         if self.autoSaveEnabled:
             self.writeFindings()
+        else:
+            pass
+            # TODO: implement message box, asking for saving
+            # how to make sure, the user really changed something and is not just scrolling though the images.
         if self.imageNumber < (len(self.fileNames)-1):
             self.imageNumber += 1
         else:
