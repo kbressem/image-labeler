@@ -79,6 +79,7 @@ class QImageViewer(QMainWindow):
             for f in files:
                 if f.endswith(self.imageExtensions) or f.endswith(".dcm"):
                     self.fileNames.append(os.path.join(dirpath, f))
+        self.fileNames.sort()
         self.imageNumber = 0
         self.show_image()
         self.loadFindings()
@@ -193,6 +194,7 @@ class QImageViewer(QMainWindow):
         else:
             self.imageNumber = 0
         self.show_image()
+        self.restoreDefaults()
         self.loadFindings()
 
     def previous(self):
@@ -203,6 +205,7 @@ class QImageViewer(QMainWindow):
         else:
             self.imageNumber = (len(self.fileNames)-1)
         self.show_image()
+        self.restoreDefaults()
         self.loadFindings()
 
     def writeFindings(self):
@@ -225,7 +228,12 @@ class QImageViewer(QMainWindow):
                 expr_name = 'self.finding_'+str(i)
                 eval(expr_name+'.setCurrentText(annotatedFinding['+str(i)+'])')
 
-        print("loaded annotations from "+saveName)
+            print("loaded annotations from "+saveName)
+
+    def restoreDefaults(self):
+        for i in range(0, self.numberFindings):
+            expr_name = 'self.finding_'+str(i)
+            eval(expr_name+'.setCurrentIndex(0)')
 
     def toggleAutosave(self):
         if self.autoSaveEnabled:
@@ -376,7 +384,7 @@ class QImageViewer(QMainWindow):
                         annotations.append([sub.replace("\n", "") for sub in f.readlines()])
 
                 df = pd.DataFrame(annotations)
-                df.insert(0, 'fileNames', self.fileNames)
+                df.insert(0, 'fileNames', annotationFiles)
                 df.to_csv("annotations.csv")
 
         try:
