@@ -61,7 +61,7 @@ class QImageViewer(QMainWindow):
 
     def loadPredefinedFindings(self):
         self.findings = []
-        with open("labels.txt", "r") as f:
+        with open("labels.config", "r") as f:
             for l in f.readlines():
                 self.findings.append(l.replace("\n", "").split(","))
 
@@ -75,9 +75,10 @@ class QImageViewer(QMainWindow):
         self.fileDir = QFileDialog.getExistingDirectory(self)
         self.fileNames = []
         self.imageExtensions = tuple([".png", ".jpeg", ".jpg", ".bmp", ".gif"])
+        self.textExtensions = tuple([".txt"])
         for dirpath, subdirs, files in os.walk(self.fileDir):
             for f in files:
-                if f.endswith(self.imageExtensions) or f.endswith(".dcm"):
+                if f.endswith(self.imageExtensions) or f.endswith(".dcm") or f.endswith(self.textExtensions):
                     self.fileNames.append(os.path.join(dirpath, f))
         self.fileNames.sort()
         self.imageNumber = 0
@@ -89,45 +90,55 @@ class QImageViewer(QMainWindow):
 
     def show_image(self, adjustDicomWindow=False):
         self.fileName = self.fileNames[self.imageNumber]
-        if self.fileName.endswith(self.imageExtensions):
-            image = QImage(self.fileName)
-            if image.isNull():
-                QMessageBox.information(self, "Image Viewer", "Cannot load %s." % fileName)
-                return
-            self.imageLabel.setPixmap(QPixmap.fromImage(image))
-        else:
-            self.dicomLevelResetAct.setEnabled(True)
-            for i in range(1,10):
-                expr = 'self.dicomLevelPreset'+str(i)+'Act.setEnabled(True)'
-                eval(expr)
 
-            # very rudimentary DICOM support
-            # TODO: (maybe) adujsting grey level values with mouse
-            self.adjustDicomWindowLevel(adjustDicomWindow)
-            self.imageLabel.setPixmap(QPixmap(".tmp.png"))
+        if self.fileName.endswith(self.textExtensions):
+            with open(self.fileName, "r") as f:
+                self.text = f.read()
+            self.imageLabel.setText(self.text)
+            self.imageLabel.setWordWrap(True)
+
+        else:
+            if self.fileName.endswith(self.imageExtensions):
+                image = QImage(self.fileName)
+                if image.isNull():
+                    QMessageBox.information(self, "Image Viewer", "Cannot load %s." % fileName)
+                    return
+                self.imageLabel.setPixmap(QPixmap.fromImage(image))
+            elif self.fileName.endswith(".dcm"):
+                self.dicomLevelResetAct.setEnabled(True)
+                for i in range(1,10):
+                    expr = 'self.dicomLevelPreset'+str(i)+'Act.setEnabled(True)'
+                    eval(expr)
+                # very rudimentary DICOM support
+                # TODO: (maybe) adujsting grey level values with mouse
+                self.adjustDicomWindowLevel(adjustDicomWindow)
+                self.imageLabel.setPixmap(QPixmap(".tmp.png"))
+
+            # rescale very small images (CT, MRI), usually squared images. If not, then width
+            # will likely be the smallest
 
         self.scaleFactor = 1.0
-
         self.scrollArea.setVisible(True)
         self.printAct.setEnabled(True)
         self.fitToWindowAct.setEnabled(True)
         self.updateActions()
 
+
         if not self.fitToWindowAct.isChecked():
             self.imageLabel.adjustSize()
 
-        # rescale very small images (CT, MRI), usually squared images. If not, then width
-        # will likely be the smallest
-        if self.imageLabel.pixmap().width() < 1024:
-            scaleFactor = 1024/self.imageLabel.pixmap().width()
-            self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
-        # rescale very large images
-        if self.imageLabel.pixmap().height() > 1024:
-            scaleFactor = 1024/self.imageLabel.pixmap().height()
-            self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
-        if self.imageLabel.pixmap().width() > 1024:
-            scaleFactor = 1024/self.imageLabel.pixmap().width()
-            self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
+        if self.fileName.endswith(self.imageExtensions) or self.fileName.endswith(".dcm"):
+            if self.imageLabel.pixmap().width() < 1024:
+                scaleFactor = 1024/self.imageLabel.pixmap().width()
+                self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
+                # rescale very large images
+            if self.imageLabel.pixmap().height() > 1024:
+                scaleFactor = 1024/self.imageLabel.pixmap().height()
+                self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
+            if self.imageLabel.pixmap().width() > 1024:
+                scaleFactor = 1024/self.imageLabel.pixmap().width()
+                self.imageLabel.resize(scaleFactor * self.imageLabel.pixmap().size())
+
 
     def adjustDicomWindowLevel(self, adjustDicomWindow=False):
         dicomFile = dcmread(self.fileName)
@@ -160,7 +171,7 @@ class QImageViewer(QMainWindow):
 
     def changeWindowLevel(self, preset, reset=False):
         presets=[]
-        with open("windowlevel-presets.txt", "r") as f:
+        with open("windowlevel-presets.config", "r") as f:
             for l in f.readlines():
                 presets.append(l.replace("\n", ""))
 
@@ -210,14 +221,14 @@ class QImageViewer(QMainWindow):
 
     def writeFindings(self):
         saveName = os.path.splitext(self.fileName)[0]
-        with open(saveName+"_annotation.txt", "w+") as a:
+        with open(saveName+"_annotation.csv", "w+") as a:
             for i in range(0, self.numberFindings):
                 expr_name = 'self.finding_'+str(i)
                 a.write(eval(expr_name+'.currentText()')+'\n')
-        print("saved file at "+saveName+"_annotation.txt")
+        print("saved file at "+saveName+"_annotation.csv")
 
     def loadFindings(self):
-        saveName = os.path.splitext(self.fileName)[0]+"_annotation.txt"
+        saveName = os.path.splitext(self.fileName)[0]+"_annotation.csv"
         if os.path.isfile(saveName):
             annotatedFinding=[]
             with open(saveName, "r") as a:
@@ -244,14 +255,17 @@ class QImageViewer(QMainWindow):
             self.toggleAutosaveAct.setText("Autosave On")
 
     def zoomIn(self):
-        self.scaleImage(1.25)
+        if not self.fileName.endswith(".txt"):
+            self.scaleImage(1.25)
 
     def zoomOut(self):
-        self.scaleImage(0.8)
+        if not self.fileName.endswith(".txt"):
+            self.scaleImage(0.8)
 
     def normalSize(self):
-        self.imageLabel.adjustSize()
-        self.scaleFactor = 1.0
+        if not self.fileName.endswith(".txt"):
+            self.imageLabel.adjustSize()
+            self.scaleFactor = 1.0
 
     def fitToWindow(self):
         fitToWindow = self.fitToWindowAct.isChecked()
@@ -377,7 +391,7 @@ class QImageViewer(QMainWindow):
                 annotations = []
                 for dirpath, subdirs, files in os.walk(self.fileDir):
                     for f in files:
-                        if f.endswith("_annotation.txt"):
+                        if f.endswith("_annotation.csv"):
                             annotationFiles.append(os.path.join(dirpath, f))
                 for a in annotationFiles:
                     with open(a, "r") as f:
