@@ -39,7 +39,7 @@ class QImageViewer(QMainWindow):
         self.createMenus()
 
         self.setWindowTitle("Image Viewer")
-        self.resize(1800, 1400)
+        self.resize(1400, 1400)
         self.setupAnnotationArea()
 
     def setupAnnotationArea(self):
@@ -51,7 +51,7 @@ class QImageViewer(QMainWindow):
         for i in range(0, self.numberFindings):
             expr_name = 'self.finding_'+str(i)
             expr_construct = '=QComboBox(self)'
-            expr_setGeometry = '.setGeometry(QRect(1410,'+str(i*30+10)+', 350, 25))'
+            expr_setGeometry = '.setGeometry(QRect(1010,'+str(i*30+10)+', 350, 25))'
             expr_setObjectName = '.setObjectName("finding_'+str(i)+'")'
             exec(expr_name+expr_construct)
             eval(expr_name+expr_setGeometry)
@@ -90,6 +90,7 @@ class QImageViewer(QMainWindow):
 
     def show_image(self, adjustDicomWindow=False):
         self.fileName = self.fileNames[self.imageNumber]
+        self.setWindowTitle(self.fileName)
 
         if self.fileName.endswith(self.textExtensions):
             with open(self.fileName, "r") as f:
