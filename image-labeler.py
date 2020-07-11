@@ -90,7 +90,7 @@ class QImageViewer(QMainWindow):
 
     def show_image(self, adjustDicomWindow=False):
         self.fileName = self.fileNames[self.imageNumber]
-        self.setWindowTitle(self.fileName)
+        self.setWindowTitle(self.fileName.rsplit("/",1)[1])
 
         if self.fileName.endswith(self.textExtensions):
             with open(self.fileName, "r") as f:
