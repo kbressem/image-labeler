@@ -81,6 +81,7 @@ class QImageViewer(QMainWindow):
                 if f.endswith(self.imageExtensions) or f.endswith(".dcm") or f.endswith(self.textExtensions):
                     self.fileNames.append(os.path.join(dirpath, f))
         self.fileNames.sort()
+        self.NumberOfImages = len(self.fileNames)
         self.imageNumber = 0
         self.show_image()
         self.loadFindings()
@@ -90,7 +91,7 @@ class QImageViewer(QMainWindow):
 
     def show_image(self, adjustDicomWindow=False):
         self.fileName = self.fileNames[self.imageNumber]
-        self.setWindowTitle(self.fileName.rsplit("/",1)[1])
+        self.setWindowTitle(str(self.imageNumber + 1) + '/' + str(self.NumberOfImages) + ' | ' + self.fileName.rsplit("/",1)[1])
 
         if self.fileName.endswith(self.textExtensions):
             with open(self.fileName, "r") as f:
