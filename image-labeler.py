@@ -81,6 +81,8 @@ class QImageViewer(QMainWindow):
                 if f.endswith(self.imageExtensions) or f.endswith(".dcm") or f.endswith(self.textExtensions):
                     self.fileNames.append(os.path.join(dirpath, f))
         self.fileNames.sort()
+        self.fileNames = [f for f in self.fileNames if not os.path.exists(os.path.splitext(f)[0] + "_annotation.csv")]
+        
         self.NumberOfImages = len(self.fileNames)
         self.imageNumber = 0
         self.show_image()
@@ -251,10 +253,10 @@ class QImageViewer(QMainWindow):
     def toggleAutosave(self):
         if self.autoSaveEnabled:
             self.autoSaveEnabled = False
-            self.toggleAutosaveAct.setText("Autosave Off")
+            self.toggleAutosaveAct.setText("Turn Autosave On")
         else:
             self.autoSaveEnabled = True
-            self.toggleAutosaveAct.setText("Autosave On")
+            self.toggleAutosaveAct.setText("Turn Autosave Off")
 
     def zoomIn(self):
         if not self.fileName.endswith(".txt"):
@@ -297,7 +299,7 @@ class QImageViewer(QMainWindow):
         self.openAct = QAction("&Open...", self, shortcut="Ctrl+O", triggered=self.open)
         self.printAct = QAction("&Print...", self, shortcut="Ctrl+P", enabled=False, triggered=self.print_)
         self.saveAct = QAction("Save Annotations", self, shortcut="Ctrl+S", enabled=False, triggered=self.writeFindings)
-        self.toggleAutosaveAct = QAction("Autosave On", self, shortcut="Ctrl+A", enabled=True, triggered=self.toggleAutosave)
+        self.toggleAutosaveAct = QAction("Turn Autosave Off", self, shortcut="Ctrl+A", enabled=True, triggered=self.toggleAutosave)
 
         self.exitAct = QAction("E&xit", self, shortcut="Ctrl+Q", triggered=self.close)
         self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
@@ -381,7 +383,7 @@ class QImageViewer(QMainWindow):
     def closeEvent(self, event):
         if hasattr(self, 'fileDir'):
             close = QMessageBox()
-            close.setText("Annotations are currently stored as mutliple text files."+
+            close.setText("Annotations are currently stored as mutliple text files. "+
                           "Shall they be gathered and stored into a single CSV-file? \n\n"+
                           "This may take some time and the program might appear unresponsive.")
             close.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
@@ -401,7 +403,8 @@ class QImageViewer(QMainWindow):
 
                 df = pd.DataFrame(annotations)
                 df.insert(0, 'fileNames', annotationFiles)
-                df.to_csv("annotations.csv")
+                df.to_csv("annotations.csv", index=False)
+                
 
         try:
             os.remove(".tmp.png")
