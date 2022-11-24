@@ -383,7 +383,7 @@ class QImageViewer(QMainWindow):
     def closeEvent(self, event):
         if hasattr(self, 'fileDir'):
             close = QMessageBox()
-            close.setText("Annotations are currently stored as mutliple text files. "+
+            close.setText("Annotations are currently stored as mutliple text files."+
                           "Shall they be gathered and stored into a single CSV-file? \n\n"+
                           "This may take some time and the program might appear unresponsive.")
             close.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
